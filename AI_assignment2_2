@@ -191,10 +191,10 @@ plt.plot(costs)
 plt.ylabel('cost')
 plt.xlabel('iterations/100')
 plt.title("Learning rate = " + str(training_result["learning_rate"]))
-plt.show()
+#plt.show()
 
 
-###(7)check a single image besides training/testing data
+###(7)sohw a single image besides training/testing data
 my_image = "images/cat_in_iran.jpg"
 image = np.array(ndimage.imread(my_image,flatten = False))
 my_image = scipy.misc.imresize(image,(64,64)).reshape((1,64*64*3)).T
