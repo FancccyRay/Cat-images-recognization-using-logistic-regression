@@ -16,7 +16,9 @@ python AI_assignment2_2
     train accuracy -- 100.000000%<br>
     test accuracy -- 66.000000%<br>
   plot the images :<br>
+  y = 1, you predicted that it is a cat picture<br>
   ![image](https://github.com/FancccyRay/Cat-images-recognization-using-logistic-regression/blob/master/picture_of_testset.png)<br>
+  y = 1.0,your algorithm predicts a cat<br>
   ![image](https://github.com/FancccyRay/Cat-images-recognization-using-logistic-regression/blob/master/picture_for_check.png)
 
 
