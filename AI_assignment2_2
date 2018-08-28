@@ -1,0 +1,229 @@
+#!/usr/bin/env python2
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Aug 17 16:27:31 2018
+
+@author: fancy
+"""
+"""
+Bulid the general architecture of a learning algorithm--a simple neural:
+    -initializing paramaters
+    -calculating the cost function and gradient
+    -using an optimization algorithm (gradient descent)    
+"""
+
+"""
+what should be remembered
+1. Preprocessing the dataset is important
+2. You implemented each function separately: 
+   initialize(), propagate(), optimize(). Then you built a model()
+3. Tuning the learning rate can make a big difference to the algorithm.
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import h5py
+import scipy
+import PIL
+from PIL import Image
+from scipy import ndimage
+from lr_utils import load_dataset
+
+###(1)load data
+train_set_x_orig, train_set_y, test_set_x_orig, test_set_y, classes = load_dataset()
+#print train_set_x_orig.shape,train_set_y.shape,test_set_x_orig.shape,test_set_y.shape
+
+###plot the images in train_set, do it if you like, for checking 
+#index = 1
+#plt.imshow(train_set_x_orig[index])
+##np.squeeze: eliminate the 1-D item
+#print "y = " + str(train_set_y[:,index]) + "\n" + " it's a " \
+#            + classes[np.squeeze(train_set_y[:,index])]  
+
+
+###(2)preprocessing
+###reshape images[x,x,3] in a numpy-array[x*x*3,1]
+###each column represents a flattened image
+m_train = train_set_x_orig.shape[0]
+m_test = test_set_x_orig.shape[0]
+num_px = train_set_x_orig.shape[1] 
+train_set_x_flatten = train_set_x_orig.reshape(m_train,-1).T
+test_set_x_flatten = test_set_x_orig.reshape(m_test,-1).T
+##center and standardize the data
+train_set_x = train_set_x_flatten / 255.
+test_set_x = test_set_x_flatten / 255.
+#print train_set_x,train_set_x.shape
+
+###(3)define functions
+##build a logistic regression
+##definition of sigmoid function
+def sigmoid_function(z):
+    s = 1 / (1 + np.exp(-z))
+    return s
+
+##initializing parameters w&b, create a vector of zeros of shape((dim,1),type = float64)
+def initiolize_with_zeros(dim):
+    w = np.zeros((dim,1))
+    b = 0
+    return w, b
+
+##propagation 
+def propagation(w, b, x ,y):
+    ##forward propagation
+    y_hat = sigmoid_function(np.dot(w.T,x) + b)
+    y_diff = y_hat - y
+    L = -(y * np.log(y_hat) + (1 - y) * np.log(1 - y_hat))  ##Loss function
+    cost =  np.sum(L) / x.shape[1]
+    ##backward propagation
+    dw = np.dot(x, y_diff.T) / x.shape[1]
+    db = np.sum(y_diff) / x.shape[1]
+    
+    assert(dw.shape == w.shape)
+    assert(db.dtype == float)
+    cost = np.squeeze(cost)
+    assert(cost.shape == ())
+    ##save as dictionary
+    grads = {"dw" : dw, "db" : db}
+    return grads, cost
+
+
+##optimization, learn w&b by minimizing the cost
+##update parameters using gradient descent
+def optimize(w, b, x, y, num_iterations, learning_rate):
+    costs = []
+    best_cost = np.array([1.])
+    best_params = {}
+    decay = 0.999  ##decay of learning_rate
+    for i in range(num_iterations):
+        grads, cost = propagation(w, b ,x ,y)
+        dw = grads["dw"]
+        db = grads["db"]
+        ##update params
+        w = w - learning_rate * dw
+        b = b - learning_rate * db
+        learning_rate *= decay 
+        ##record cost every 100 iteration
+        if i % 100 == 0:
+            costs.append(cost)
+#            print "cost after iteration %d: %+f" %(i, cost)
+#            print "learning_rate:%f"%learning_rate
+        ##when the data_set is big enough
+        ##save the params at the smallest cost
+        if cost < best_cost:
+                best_cost = cost
+                best_params["w"] = w
+                best_params["b"] = b
+    print "best cost : %f"%best_cost 
+    
+    params = {"w" : w, "b" : b, "learning_rate" : learning_rate, "best_w" : best_params["w"], \
+              "best_b" : best_params["b"]}
+    grads = {"dw" : dw , "db" : db}
+    
+    return params, grads, costs
+
+##prediction
+##step1:calculate y_hat
+##step2:1(activation>0.5),0(activation<=0.5)
+def predict(w, b, x):
+    y_hat = sigmoid_function(np.dot(w.T,x) + b)
+    assert(y_hat.shape[1] == x.shape[1])
+    y_pred = np.zeros((1,y_hat.shape[1]))
+    for i in range(y_hat.shape[1]):
+        if y_hat[:,i] <= 0.5:
+            y_pred[:,i] = 0
+        else:
+            y_pred[:,i] = 1
+    return y_pred
+
+##(4)merge all functions into a model
+def model(x_train, y_train, x_test, y_test, num_iterations = 2000, \
+           learning_rate = 0.05):   
+    features_num = x_train.shape[0]
+    w, b = initiolize_with_zeros(features_num)
+    params, grads, costs = optimize(w, b, x_train, y_train, \
+                        num_iterations , learning_rate)
+    w, b, learning_rate = params["w"],params["b"],params["learning_rate"]  
+    y_pred_train = predict(w, b, x_train)
+    y_pred_test = predict(w, b, x_test)    
+    accuracy_train = 100 - np.mean(np.abs(y_pred_train - y_train) * 100)
+    accuracy_test = 100 - np.mean(np.abs(y_pred_test - y_test) * 100)
+    
+    ##predict y_hat with best_params
+    best_w, best_b = params["best_w"], params["best_b"]
+    best_y_pred_train = predict(best_w, best_b, x_train)
+    best_y_pred_test = predict(best_w, best_b, x_test)
+    best_accuracy_train = 100 - np.mean(np.abs(best_y_pred_train - y_train) * 100)
+    best_accuracy_test = 100 - np.mean(np.abs(best_y_pred_test - y_test) * 100)
+    
+    ##comparison between last w&b and best w&b
+    print "learning_rate : %f"%learning_rate
+    print "train accuracy -- %f%% : %f%%"%(accuracy_train,best_accuracy_train)
+    print "test accuracy -- %f%% : %f%%"%(accuracy_test, best_accuracy_test)
+    
+    result = {"costs" : costs, "y_pred_test" : y_pred_test, \
+              "y_pred_train" : y_pred_train, "w" : w, "b" : b, \
+              "learning_rate" : learning_rate, "num_iterations" : num_iterations}
+    return result
+##for (6)、(7)
+training_result = model(train_set_x,train_set_y,test_set_x,test_set_y)
+
+###(5)chose different learning_rate and check which is better
+##choices of certain learning rate
+#learning_rate = [0.01 ,0.001, 0.0001]
+#models = {}  ##dictionary
+#for i in learning_rate:
+#    models[str(i)] = model(train_set_x,train_set_y,test_set_x,test_set_y,learning_rate=i)
+#for i in learning_rate:
+#    ###show result
+#    plt.plot(models[str(i)]["costs"],label = str(models[str(i)]["learning_rate"]))
+#    plt.ylabel('cost')
+#    plt.xlabel('iterations/100')
+#    legend = plt.legend(loc = 'upper center', shadow = True)
+#    frame = legend.get_frame().set_facecolor('red')
+#    plt.show()
+
+
+##(6)check a single image 
+plt.imshow(test_set_x[:,1].reshape(64,64,3))
+print ("y = " + str(test_set_y[0,1]) + ", you predicted that it is a " + classes[int(training_result["y_pred_test"][0,1])].decode("utf-8") + " picture")
+costs = np.squeeze(training_result["costs"])
+plt.plot(costs)
+plt.ylabel('cost')
+plt.xlabel('iterations/100')
+plt.title("Learning rate = " + str(training_result["learning_rate"]))
+plt.show()
+
+
+###(7)check a single image besides training/testing data
+my_image = "images/cat_in_iran.jpg"
+image = np.array(ndimage.imread(my_image,flatten = False))
+my_image = scipy.misc.imresize(image,(64,64)).reshape((1,64*64*3)).T
+my_pred_image = predict(training_result["w"],training_result["b"],my_image)
+plt.imshow(image)
+print "y = " + str(np.squeeze(my_pred_image)) + ",your algorithm predicts a " \
+             + classes[int(np.squeeze(my_pred_image)),].decode("utf-8")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
